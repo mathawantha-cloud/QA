@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ระบบสรุปการเข้างานทีม (Real-time Dashboard)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans Thai',sans-serif;background:#f1f5f9;color:#0f172a;font-size:14px}
+header{background:linear-gradient(135deg,#1e3a8a,#0ea5e9);color:#fff;padding:14px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+header h1{font-size:18px;font-weight:700}
+.badge{background:rgba(255,255,255,.18);padding:4px 10px;border-radius:20px;font-size:12px}
+.badge.on{background:#22c55e}
+nav{background:#fff;display:flex;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:20}
+nav button{border:0;background:none;padding:13px 18px;font-family:inherit;font-size:14px;cursor:pointer;color:#475569;border-bottom:3px solid transparent}
+nav button.active{color:#0369a1;border-color:#0ea5e9;font-weight:600;background:#f0f9ff}
+.wrap{padding:18px;max-width:1500px;margin:auto}
+.bar{background:#fff;border-radius:12px;padding:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.f{display:flex;flex-direction:column;gap:4px}
+.f label{font-size:12px;color:#64748b;font-weight:600}
+select,input,textarea{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+textarea{min-height:80px;width:100%}
+.btn{background:#0ea5e9;color:#fff;border:0;padding:9px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600}
+.btn:hover{filter:brightness(.93)}
+.btn.g{background:#16a34a}.btn.r{background:#dc2626}.btn.s{background:#64748b}.btn.o{background:#ea580c}.btn.sk{background:#0284c7}
+.btn.sm{padding:4px 12px;font-size:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:14px;margin-bottom:16px}
+.card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:5px solid #0ea5e9}
+.card .t{font-size:12px;color:#64748b}
+.card .v{font-size:28px;font-weight:700;margin-top:4px}
+.card.gr{border-color:#16a34a}.card.rd{border-color:#dc2626}.card.or{border-color:#ea580c}.card.pu{border-color:#7c3aed}
+.panel{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px}
+.panel h2{font-size:16px;margin-bottom:12px;color:#1e3a8a}
+.tw{overflow:auto;border-radius:10px;border:1px solid #e2e8f0;max-height:70vh}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th{background:#1e3a8a;color:#fff;padding:10px 12px;text-align:left;font-weight:600;position:sticky;top:0;z-index:2}
+td{padding:9px 12px;border-bottom:1px solid #eef2f7}
+tbody tr:hover{background:#f8fafc}
+.pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block}
+.p-green{background:#dcfce7;color:#15803d}.p-yellow{background:#fef9c3;color:#a16207}
+.p-red{background:#fee2e2;color:#b91c1c}.p-pink{background:#fce7f3;color:#be185d}
+.p-blue{background:#dbeafe;color:#1d4ed8}.p-gray{background:#e2e8f0;color:#475569}
+.chip{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;padding:2px 8px;margin:2px;font-size:12px}
+.chip.bad{background:#fee2e2;color:#b91c1c}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.hint{font-size:12px;color:#64748b;margin-top:6px;line-height:1.7}
+.drop{border:2px dashed #94a3b8;border-radius:12px;padding:26px;text-align:center;background:#f8fafc;cursor:pointer;transition:.2s}
+.drop.over{border-color:#0ea5e9;background:#e0f2fe}
+.drop b{color:#0369a1}
+.linkbox{display:flex;gap:8px}.linkbox input{flex:1;font-size:12px}
+.modalbg{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modalbg.show{display:flex}
+.modal{background:#fff;border-radius:14px;max-width:660px;width:100%;padding:22px;max-height:85vh;overflow:auto}
+.modal h3{font-size:17px;margin-bottom:10px}
+.modal .body{font-size:14px;line-height:1.8;color:#334155}
+.modal .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.dupbox{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-top:10px;max-height:230px;overflow:auto;font-size:12px}
+.dupbox.err{background:#fef2f2;border-color:#fecaca}
+#toast{position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:#0f172a;color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:sl .3s}
+.toast.ok{background:#16a34a}.toast.err{background:#dc2626}.toast.warn{background:#ea580c}
+@keyframes sl{from{transform:translateX(40px);opacity:0}}
+@media print{nav,header,.bar,.noprint{display:none!important}body{background:#fff}.tw{max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 ระบบสรุปการเข้างานทีม <span style="font-weight:400;font-size:13px">(Real-time Dashboard)</span></h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="badge" id="dbBadge">DB: 0 แถว</span>
+    <span class="badge" id="syncBadge">● กำลังเชื่อมต่อ...</span>
+    <span class="badge" id="roomBadge">Room: default</span>
+    <span class="badge" id="userBadge" style="display:none"></span>
+    <button class="btn s sm" id="btnLogout" style="display:none">ออกจากระบบ</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-p="1">1. สรุปผลเข้างาน</button>
+  <button data-p="2">2. ข้อมูลสแกนเข้างาน</button>
+  <button data-p="3">3. ระบบ Defend</button>
+  <button data-p="4">4. Export</button>
+  <button data-p="5">5. Setting / Link</button>
+</nav>
+
+<div class="wrap">
+  <!-- โซนอัปโหลด -->
+  <div class="panel noprint" id="upPanel">
+    <h2>📥 อัปโหลดไฟล์ Excel (rpt_TimePerson)</h2>
+    <div class="drop" id="drop">
+      <div style="font-size:30px">📄</div>
+      <div style="margin-top:6px"><b>คลิกเพื่อเลือกไฟล์</b> หรือ ลากไฟล์มาวางตรงนี้</div>
+      <div class="hint">รองรับ .xls .xlsx .csv — อ่านคอลัมน์ <b>ชื่อ - นามสกุล / วันที่ / เวลาแรก / เวลาสุดท้าย</b> • แปลง พ.ศ.→ค.ศ. อัตโนมัติ</div>
+      <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" multiple hidden>
+    </div>
+    <div class="tw" style="margin-top:14px;max-height:300px"><table id="tFiles">
+      <thead><tr><th>ไฟล์ที่อัปโหลด</th><th>ช่วงข้อมูล</th><th>ชื่อ - นามสกุล (พนักงานในไฟล์)</th><th>แถวในไฟล์</th><th>นำเข้าแล้ว</th><th>นำเข้าเมื่อ</th><th>จัดการ</th></tr></thead>
+      <tbody></tbody></table></div>
+  </div>
+
+  <!-- filter กลาง -->
+  <div class="bar noprint" id="globalBar">
+    <div class="f"><label>เดือน</label><select id="fMonth"></select></div>
+    <div class="f"><label>ปี (ค.ศ.)</label><select id="fYear"></select></div>
+    <div class="f"><label>ชื่อ - นามสกุล</label><select id="fPerson"><option value="ALL">ทั้งหมด (All)</option></select></div>
+    <button class="btn s" id="btnJumpData">↷ ไปเดือนที่มีข้อมูล</button>
+    <button class="btn r" id="btnClear">🗑 ล้างข้อมูลทั้งหมด</button>
+  </div>
+
+  <!-- ===== หน้า 1 ===== -->
+  <section id="page1">
+    <div class="cards">
+      <div class="card"><div class="t">วันทำงานของเดือนนี้ (ปฏิทินจริง)</div><div class="v" id="c-workdays">0</div><div class="hint" id="c-workdays-sub"></div></div>
+      <div class="card pu"><div class="t">จำนวนพนักงาน</div><div class="v" id="c-emp">0</div></div>
+      <div class="card or"><div class="t">มาสาย &gt; 09:30 (ครั้ง)</div><div class="v" id="c-late">0</div></div>
+      <div class="card rd"><div class="t">ยอดเงินสะสมเข้าแผนก (บาท)</div><div class="v" id="c-fine">0</div></div>
+      <div class="card gr"><div class="t">ได้สิทธิ์ WFH</div><div class="v" id="c-wfh">0</div></div>
+      <div class="card rd"><div class="t">พนักงานนำเข้าไม่ครบ</div><div class="v" id="c-incomplete">0</div></div>
+    </div>
+    <div class="panel">
+      <h2>สรุปการมาทำงานรายบุคคล (มี Defend ยกเว้นค่าปรับ 100 บาทและไม่คิด KPI)</h2>
+      <div class="tw"><table id="tSummary">
+        <thead><tr>
+          <th>ชื่อ - นามสกุล</th><th>มาทำงานจริง</th><th>Defend</th>
+          <th>มาสาย &gt;09:30<br><span style="font-weight:400;font-size:11px">เก็บเงินเข้าแผนก 100 ฿/ครั้ง</span></th>
+          <th>ยอดเงินสะสม (฿)</th>
+          <th>KPI หัก 1<br><span style="font-weight:400;font-size:10px">&gt;09:30 & ครบ 9 ชม. (นับ 1)</span></th>
+          <th>KPI หัก 2<br><span style="font-weight:400;font-size:10px">&gt;09:30 & ไม่ครบ 9 ชม. (นับ 2)</span></th>
+          <th>KPI หัก 1<br><span style="font-weight:400;font-size:10px">&lt;09:30 & ไม่ครบ 9 ชม. (นับ 1)</span></th>
+          <th>รวมคะแนน KPI</th><th>ตัด KPI (&gt;10 ครั้ง)</th><th>สิทธิ์ WFH</th>
+        </tr></thead><tbody></tbody></table></div>
+      <div class="hint">เงื่อนไข: วันที่มีการยื่น Defend จะได้รับการยกเว้นทั้งการคิดค่าปรับ 100 บาท และไม่นำมาคำนวณคะแนน KPI</div>
+    </div>
+  </section>
+
+  <!-- ===== หน้า 2 ===== -->
+  <section id="page2" style="display:none">
+    <div class="panel">
+      <h2>บันทึกเวลาสแกนจริงจากไฟล์ Excel</h2>
+      <div class="tw"><table id="tScan">
+        <thead><tr><th>วันที่</th><th>ชื่อ - นามสกุล</th><th>สแกนเข้า</th><th>สแกนออก</th><th>ชั่วโมงรวม</th><th>สถานะเข้างาน</th><th>ที่มา</th></tr></thead>
+        <tbody></tbody></table></div>
+      <div class="hint" style="margin-top: 10px;">
+        <span class="pill p-green">ปกติ</span> สแกนเข้า &lt; 09:30 และอยู่ครบ &ge; 9 ชม. &nbsp;
+        <span class="pill p-yellow">มาสายและครบ 9 ชม.</span> สแกนเข้า &gt; 09:30 และอยู่ครบ &ge; 9 ชม. &nbsp;
+        <span class="pill p-red">มาสายและไม่ครบ 9 ชม.</span> สแกนเข้า &gt; 09:30 และอยู่ไม่ครบ 9 ชม. &nbsp;
+        <span class="pill p-pink">ไม่สายและอยู่ไม่ครบ 9 ชม.</span> สแกนเข้า &le; 09:30 และอยู่ไม่ครบ 9 ชม.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== หน้า 3 ===== -->
+  <section id="page3" style="display:none">
+    <div class="panel">
+      <h2>ระบบ Defend — ยื่นคำร้องอนุโลมเงื่อนไข</h2>
+      <div class="grid2">
+        <div class="f"><label>พนักงาน (ชื่อ - นามสกุล)</label><select id="dName"></select></div>
+        <div class="f"><label>วันที่ต้องการ Defend</label><input type="date" id="dDate"></div>
+        <div class="f"><label>ประเภท</label><select id="dType"></select></div>
+      </div>
+      <div class="f" style="margin-top:12px"><label>เหตุผล / รายละเอียด / หลักฐาน</label><textarea id="dReason" placeholder="ระบุเหตุผล..."></textarea></div>
+      <button class="btn g" id="btnDefend" style="margin-top:12px">➕ กด Defend</button>
+    </div>
+    <div class="panel">
+      <h2>รายการคำร้องขอ Defend</h2>
+      <div class="tw"><table id="tDefend">
+        <thead><tr><th>วันที่ขออนุโลม</th><th>ชื่อ - นามสกุล</th><th>ประเภทการ Defend</th><th>เหตุผล / รายละเอียด</th><th>จัดการ</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ===== หน้า 4 ===== -->
+  <section id="page4" style="display:none">
+    <div class="panel noprint">
+      <h2>Export ข้อมูล</h2>
+      <button class="btn g" id="btnXls">📗 Export Excel (.xlsx)</button>
+      <button class="btn r" id="btnPdf" style="margin-left:8px">📕 Export PDF</button>
+      <button class="btn s" id="btnJson" style="margin-left:8px">💾 Backup JSON</button>
+      <button class="btn s" id="btnRestore" style="margin-left:8px">📂 Restore JSON</button>
+      <input type="file" id="restoreIn" accept=".json" hidden>
+    </div>
+    <div class="panel">
+      <h2 id="exTitle">ตัวอย่างข้อมูลที่จะ Export</h2>
+      <div class="tw"><table id="tExport">
+        <thead><tr><th>วันที่</th><th>ชื่อ - นามสกุล</th><th>สแกนเข้า</th><th>สแกนออก</th><th>ชั่วโมงรวม</th><th>Defend</th><th>KPI</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ===== หน้า 5 ===== -->
+  <section id="page5" style="display:none">
+    <div class="panel">
+      <h2>⚙️ Setting — ตั้งค่าเงื่อนไข</h2>
+      <div class="grid2">
+        <div class="f"><label>เวลาเข้างานปกติ (เกินนี้ = มาสาย)</label><input type="time" id="sLate"></div>
+        <div class="f"><label>เวลาเข้างานสำหรับสิทธิ์ WFH</label><input type="time" id="sWfh"></div>
+        <div class="f"><label>ชั่วโมงทำงานขั้นต่ำ (ชม.)</label><input type="number" step="0.5" id="sHours"></div>
+        <div class="f"><label>ค่าปรับมาสาย (บาท/ครั้ง)</label><input type="number" id="sFine"></div>
+        <div class="f"><label>เกณฑ์ KPI ส่วนเกิน (แต้ม)</label><input type="number" id="sKth"></div>
+      </div>
+      <div class="f" style="margin-top:14px"><label>วันทำงานในสัปดาห์</label>
+        <div id="sDays" style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0"></div></div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="f"><label>วันหยุดนักขัตฤกษ์ (บรรทัดละ 1 วัน — YYYY-MM-DD)</label><textarea id="sHoliday" placeholder="2026-08-12"></textarea></div>
+        <div class="f"><label>ประเภทการ Defend (บรรทัดละ 1 ประเภท)</label><textarea id="sTypes"></textarea></div>
+      </div>
+      <button class="btn g" id="btnSaveSet" style="margin-top:14px">💾 บันทึกการตั้งค่า</button>
+      <button class="btn s" id="btnResetSet" style="margin-left:8px">↺ ค่าเริ่มต้น</button>
+    </div>
+
+    <div class="panel">
+      <h2>☁️ การเชื่อมต่อ Supabase</h2>
+      <div class="hint" style="font-size:13px;line-height:2">
+        <b>สถานะ:</b> <span id="setSyncStatus">-</span><br>
+        <b>โปรเจกต์:</b> <span id="setProjectUrl"></span><br>
+        <b>Room:</b> <span id="setRoomId"></span><br>
+        <b>ผู้ใช้ที่ล็อกอิน:</b> <span id="setUserEmail">-</span>
+      </div>
+      <div class="hint" style="margin-top:10px"><b>คำแนะนำ:</b> ตอนนี้ข้อมูลทั้งหมด (บันทึกเวลา, Defend, ไฟล์ที่อัปโหลด, การตั้งค่า) ถูกเก็บไว้บนฐานข้อมูล Supabase กลาง ทุกคนที่เข้าสู่ระบบด้วยบัญชีที่ได้รับสิทธิ์จะเห็นข้อมูลชุดเดียวกันแบบเรียลไทม์ โดยไม่ต้องส่งลิงก์แชร์ข้อมูลแบบเดิมอีกต่อไป</div>
+      <button class="btn r sm" id="btnLogout2" style="margin-top:12px">ออกจากระบบ</button>
+    </div>
+  </section>
+</div>
+
+<div class="modalbg" id="modal"><div class="modal">
+  <h3 id="mTitle"></h3><div class="body" id="mBody"></div><div class="acts" id="mActs"></div>
+</div></div>
+<div id="toast"></div>
+
+<div class="modalbg" id="authGate" style="z-index:500">
+  <div class="modal" style="max-width:380px">
+    <h3 style="color:#1e3a8a">🔐 เข้าสู่ระบบเพื่อใช้งาน</h3>
+    <div class="body">
+      <div class="hint" style="margin-bottom:12px">ข้อมูลการเข้างานเชื่อมกับ Supabase แล้ว ต้องเข้าสู่ระบบก่อนจึงจะดู/แก้ไขข้อมูลได้</div>
+      <div class="f" style="margin-bottom:10px"><label>อีเมล</label><input type="email" id="authEmail" style="width:100%" autocomplete="username"></div>
+      <div class="f" style="margin-bottom:6px"><label>รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)</label><input type="password" id="authPass" style="width:100%" autocomplete="current-password"></div>
+      <div id="authMsg" style="font-size:12px;color:#dc2626;min-height:18px"></div>
+    </div>
+    <div class="acts">
+      <button class="btn s" id="btnSignUp">สมัครสมาชิกใหม่</button>
+      <button class="btn g" id="btnSignIn">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG & STATE ================= */
+const DEF_SET={late:"09:30",wfh:"09:00",hours:9,fine:100,kth:10,
+  days:[1,2,3,4,5],holidays:["2026-08-12"],dup:"skip",
+  types:["สิทธิ์เข้าสาย (PVT หลังเที่ยงคืน)","สิทธิ์ WDH (PVT ถึงเช้า)","ลาพักร้อนเต็มวัน","ลาพักร้อนครึ่งวัน","ลากิจ","ลาป่วย","ลืมสแกน"]};
+let ST={records:[],defends:[],files:[],settings:{...DEF_SET}};
+const MONTHS=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const DNAMES=["อา","จ","อ","พ","พฤ","ศ","ส"];
+
+/* ================= SUPABASE CONFIG ================= */
+const SUPABASE_URL='https://kkovtbhavuzjwdikjfhn.supabase.co';
+const SUPABASE_KEY='sb_publishable_C72KoJzVnDK4hrY84XxDXg_wjXzE4rd';
+const ROOM_ID='default'; // เปลี่ยนได้ถ้าต้องการแยกข้อมูลหลายทีม/บริษัทในโปรเจกต์เดียวกัน
+const { createClient } = supabase; // มาจาก <script> ของ @supabase/supabase-js ที่โหลดไว้ใน <head>
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+let rtChannel = null;
+
+/* ================= UI HELPERS ================= */
+function toast(msg,type='',ms=3600){
+  const d=document.createElement('div');d.className='toast '+type;d.innerHTML=msg;
+  document.getElementById('toast').appendChild(d);setTimeout(()=>d.remove(),ms);
+}
+function modal(title,bodyHtml,actions,color){
+  const t=document.getElementById('mTitle');t.innerHTML=title;t.style.color=color||'#b91c1c';
+  document.getElementById('mBody').innerHTML=bodyHtml;
+  const a=document.getElementById('mActs');a.innerHTML='';
+  (actions||[{text:'ปิด',cls:'s'}]).forEach(x=>{const b=document.createElement('button');b.className='btn '+(x.cls||'');
+    b.textContent=x.text;b.onclick=()=>{closeModal();x.fn&&x.fn()};a.appendChild(b)});
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+
+/* ================= SUPABASE: FETCH / SYNC ================= */
+async function fetchAllData(){
+  const [recRes,defRes,fileRes,setRes]=await Promise.all([
+    sb.from('attendance_records').select('*').eq('room_id',ROOM_ID),
+    sb.from('defends').select('*').eq('room_id',ROOM_ID),
+    sb.from('uploaded_files').select('*').eq('room_id',ROOM_ID),
+    sb.from('app_settings').select('*').eq('room_id',ROOM_ID).maybeSingle()
+  ]);
+  if(recRes.error||defRes.error||fileRes.error||setRes.error){
+    console.error(recRes.error||defRes.error||fileRes.error||setRes.error);
+    toast('⚠️ โหลดข้อมูลจาก Supabase ไม่สำเร็จ ลองรีเฟรชอีกครั้ง','err',5000);
+  }
+  ST.records=(recRes.data||[]).map(r=>({d:r.work_date,n:r.employee_name,i:r.time_in_min,o:r.time_out_min,ot:r.ot_note||'',fid:r.file_id}));
+  ST.defends=(defRes.data||[]).map(x=>({id:x.id,name:x.employee_name,date:x.defend_date,type:x.defend_type,reason:x.reason||'',status:x.status}));
+  ST.files=(fileRes.data||[]).map(f=>({id:f.id,name:f.file_name,hash:f.file_hash,period:f.period_label,rows:f.rows_count,count:f.imported_count,emps:f.employees||[],at:new Date(f.uploaded_at).toLocaleString('th-TH')}));
+  const s=setRes.data;
+  ST.settings=s?{late:s.late_time,wfh:s.wfh_time,hours:s.min_hours,fine:s.fine_amount,kth:s.kpi_threshold,days:s.work_days,holidays:s.holidays||[],types:s.defend_types||[]}:{...DEF_SET};
+}
+
+function subscribeRealtime(){
+  if(rtChannel)return;
+  rtChannel=sb.channel('room-'+ROOM_ID)
+    .on('postgres_changes',{event:'*',schema:'public',table:'attendance_records',filter:'room_id=eq.'+ROOM_ID},async()=>{await fetchAllData();renderAll();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'defends',filter:'room_id=eq.'+ROOM_ID},async()=>{await fetchAllData();renderAll();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'uploaded_files',filter:'room_id=eq.'+ROOM_ID},async()=>{await fetchAllData();renderAll();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'app_settings',filter:'room_id=eq.'+ROOM_ID},async()=>{await fetchAllData();renderAll();})
+    .subscribe();
+}
+
+/* ================= SUPABASE: AUTH ================= */
+function showAuthGate(){document.getElementById('authGate').classList.add('show')}
+function hideAuthGate(){document.getElementById('authGate').classList.remove('show')}
+
+async function onLoggedIn(){
+  document.getElementById('userBadge').textContent='👤 '+currentUser.email;
+  document.getElementById('userBadge').style.display='';
+  document.getElementById('btnLogout').style.display='';
+  document.getElementById('syncBadge').textContent='● ☁ Connected';
+  document.getElementById('syncBadge').classList.add('on');
+  document.getElementById('setSyncStatus').textContent='เชื่อมต่อสำเร็จ ✅';
+  document.getElementById('setProjectUrl').textContent=SUPABASE_URL;
+  document.getElementById('setRoomId').textContent=ROOM_ID;
+  document.getElementById('setUserEmail').textContent=currentUser.email;
+  await fetchAllData();
+  renderAll();
+  subscribeRealtime();
+}
+
+function onLoggedOut(){
+  document.getElementById('userBadge').style.display='none';
+  document.getElementById('btnLogout').style.display='none';
+  document.getElementById('syncBadge').textContent='● รอเข้าสู่ระบบ';
+  document.getElementById('syncBadge').classList.remove('on');
+  document.getElementById('setSyncStatus').textContent='ยังไม่ได้เข้าสู่ระบบ';
+  document.getElementById('setUserEmail').textContent='-';
+  ST={records:[],defends:[],files:[],settings:{...DEF_SET}};
+  if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;}
+  renderAll();
+  showAuthGate();
+}
+
+async function initAuth(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){currentUser=session.user;hideAuthGate();await onLoggedIn();}
+  else{showAuthGate();}
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(session&&(!currentUser||currentUser.id!==session.user.id)){
+      currentUser=session.user;hideAuthGate();await onLoggedIn();
+    }else if(!session&&currentUser){
+      currentUser=null;onLoggedOut();
+    }
+  });
+}
+
+document.getElementById('btnSignIn').onclick=async()=>{
+  const email=authEmail.value.trim(),pass=authPass.value;
+  const msg=document.getElementById('authMsg');msg.style.color='#dc2626';msg.textContent='';
+  if(!email||!pass){msg.textContent='กรุณากรอกอีเมลและรหัสผ่าน';return;}
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error)msg.textContent=error.message;
+};
+document.getElementById('btnSignUp').onclick=async()=>{
+  const email=authEmail.value.trim(),pass=authPass.value;
+  const msg=document.getElementById('authMsg');msg.style.color='#dc2626';msg.textContent='';
+  if(!email||!pass||pass.length<6){msg.textContent='กรอกอีเมลและรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)';return;}
+  const {error}=await sb.auth.signUp({email,password:pass});
+  if(error){msg.textContent=error.message;return;}
+  msg.style.color='#16a34a';msg.textContent='สมัครสำเร็จ! ถ้าโปรเจกต์เปิดยืนยันอีเมล ให้เช็คอีเมลก่อนกดเข้าสู่ระบบ';
+};
+async function doLogout(){await sb.auth.signOut();}
+document.getElementById('btnLogout').onclick=doLogout;
+document.getElementById('btnLogout2').onclick=doLogout;
+
+/* ================= UTIL ================= */
+const pad=n=>String(n).padStart(2,'0');
+const C=v=>String(v==null?'':v).trim();
+const norm=s=>C(s).toLowerCase().replace(/[\s\-_.()]/g,'');
+function toMin(t){if(t==null||t==='')return null;const m=String(t).match(/(\d{1,2})[:.](\d{2})/);return m?(+m[1])*60+(+m[2]):null}
+function mmToHHMM(m){return m==null?'-':pad(Math.floor(m/60)%24)+':'+pad(m%60)}
+function parseDate(v){
+  if(v==null||v==='')return null;
+  if(typeof v==='number'){const d=XLSX.SSF.parse_date_code(v);if(!d||!d.y)return null;let y=d.y;if(y>2400)y-=543;return `${y}-${pad(d.m)}-${pad(d.d)}`}
+  if(v instanceof Date){let y=v.getFullYear();if(y>2400)y-=543;return `${y}-${pad(v.getMonth()+1)}-${pad(v.getDate())}`}
+  const m=String(v).trim().match(/(\d{1,4})[-/.](\d{1,2})[-/.](\d{2,4})/);if(!m)return null;
+  let y,mo,d;
+  if(m[1].length===4){y=+m[1];mo=+m[2];d=+m[3]}else{d=+m[1];mo=+m[2];y=+m[3];if(y<100)y+=(y>50?2443:2000)}
+  if(y>2400)y-=543;
+  if(mo<1||mo>12||d<1||d>31)return null;
+  return `${y}-${pad(mo)}-${pad(d)}`;
+}
+function parseTime(v){
+  if(v==null||v==='')return null;
+  if(typeof v==='number'){const m=Math.round((v%1)*1440);return m===0?null:m}
+  if(v instanceof Date)return v.getHours()*60+v.getMinutes();
+  return toMin(v);
+}
+function workHours(i,o){if(i==null||o==null)return 0;let d=o-i;if(d<0)d+=1440;return d/60}
+function ym(){return document.getElementById('fYear').value+'-'+pad(+document.getElementById('fMonth').value)}
+function personF(){return document.getElementById('fPerson').value}
+function allNames(){return[...new Set(ST.records.map(r=>r.n))].sort((a,b)=>a.localeCompare(b,'th'))}
+async function sha256(buf){
+  const h=await crypto.subtle.digest('SHA-256',buf);
+  return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function workdaysOf(k){
+  const[y,m]=k.split('-').map(Number);const last=new Date(y,m,0).getDate();const out=[];
+  for(let d=1;d<=last;d++){const dt=new Date(y,m-1,d);const key=`${y}-${pad(m)}-${pad(d)}`;
+    if(ST.settings.days.includes(dt.getDay())&&!(ST.settings.holidays||[]).includes(key))out.push(key)}
+  return out;
+}
+const defendOf=(n,d)=>ST.defends.find(x=>x.name===n&&x.date===d);
+function dayRecs(k,person){
+  return ST.records.filter(r=>r.d.startsWith(k)&&(person==='ALL'||r.n===person))
+    .sort((a,b)=>a.d===b.d?a.n.localeCompare(b.n,'th'):a.d.localeCompare(b.d));
+}
+
+/* ================= EVALUATION LOGIC (อัปเดต: มี Defend จะไม่นับมาสายและไม่คิดค่าปรับ รวมถึงไม่คิด KPI) ================= */
+function evaluateAttendance(n, day, r) {
+  const S = ST.settings;
+  const L = toMin(S.late); // 09:30
+  const df = defendOf(n, day);
+  
+  let i = r ? r.i : null;
+  let o = r ? r.o : null;
+  
+  // หากมี Defend ในวันนั้น จะไม่ถือว่ามาสาย (ไม่คิดค่าปรับ 100 บาท) และไม่คิด KPI
+  let isLateForFine = false;
+  if (!df && i != null && i > L) {
+    isLateForFine = true;
+  }
+
+  let kpiHag1_Late = 0;   
+  let kpiHag2 = 0;        
+  let kpiHag1_Early = 0;  
+  
+  let statusLabel = 'ไม่มีข้อมูลสแกน';
+  let statusClass = 'p-gray';
+
+  if (!df && i != null) {
+    const minsIn = i;
+    const h = workHours(i, o);
+    const isComplete9h = (o != null && h >= S.hours);
+    const isLate930 = minsIn > L;
+
+    if (isLate930) {
+      if (isComplete9h) {
+        kpiHag1_Late = 1;
+        statusLabel = 'มาสายและครบ 9 ชม.';
+        statusClass = 'p-yellow';
+      } else {
+        kpiHag2 = 1;
+        statusLabel = 'มาสายและไม่ครบ 9 ชม.';
+        statusClass = 'p-red';
+      }
+    } else {
+      if (isComplete9h) {
+        statusLabel = 'ปกติ';
+        statusClass = 'p-green';
+      } else {
+        kpiHag1_Early = 1;
+        statusLabel = 'ไม่สายและอยู่ไม่ครบ 9 ชม.';
+        statusClass = 'p-pink';
+      }
+    }
+  } else if (df) {
+    statusLabel = `Defend: ${df.type}`;
+    statusClass = 'p-blue';
+  }
+
+  return {
+    isLateForFine,
+    kpiHag1_Late: df ? 0 : kpiHag1_Late,
+    kpiHag2: df ? 0 : kpiHag2,
+    kpiHag1_Early: df ? 0 : kpiHag1_Early,
+    h: workHours(i, o),
+    statusLabel,
+    statusClass,
+    hasDefend: !!df
+  };
+}
+
+/* ================= EXCEL PARSER ================= */
+const NAME_KEYS=['ชื่อ-นามสกุล','ชื่อนามสกุล','ชื่อ-สกุล','ชื่อ','นามสกุล','fullname','employeename','name','staff'];
+const NAME_BAN =['รหัส','บัตร','เลขที่','code','id','no.','แผนก','department','division','สาขา'];
+const DATE_KEYS=['วันที่','วัน','date'];
+const IN_KEYS  =['เวลาแรก','สแกนเข้า','เวลาเข้า','เข้างาน','timein','checkin','เวลาเริ่ม'];
+const OUT_KEYS =['เวลาสุดท้าย','สแกนออก','เวลาออก','ออกงาน','timeout','checkout'];
+const OT_KEYS  =['โอที','overtime','ot'];
+
+function pickCol(row,keys,ban){
+  let best=-1,score=-1;
+  for(let i=0;i<row.length;i++){
+    const c=norm(row[i]);if(!c)continue;
+    if(ban&&ban.some(b=>c.includes(norm(b))))continue;
+    for(let k=0;k<keys.length;k++){
+      const nk=norm(keys[k]);
+      if(c===nk){if(100-k>score){score=100-k;best=i}}
+      else if(c.includes(nk)){if(50-k>score){score=50-k;best=i}}
+    }
+  }
+  return best;
+}
+
+function parseSheet(rows){
+  let h=-1,M=null;
+  for(let i=0;i<Math.min(rows.length,40);i++){
+    const r=(rows[i]||[]).map(C);
+    const cName=pickCol(r,NAME_KEYS,NAME_BAN),cDate=pickCol(r,DATE_KEYS),cIn=pickCol(r,IN_KEYS);
+    if(cName>=0&&cDate>=0&&cIn>=0){
+      h=i;M={name:cName,date:cDate,in:cIn,out:pickCol(r,OUT_KEYS),ot:pickCol(r,OT_KEYS)};break;
+    }
+  }
+  if(h<0)return{err:'ไม่พบหัวตาราง (ต้องมีคอลัมน์ ชื่อ - นามสกุล / วันที่ / เวลาแรก)'};
+  const out=[];let curName='';
+  const isNameLike=s=>s&&!/^\d+$/.test(s);
+  for(let i=h+1;i<rows.length;i++){
+    const r=rows[i]||[];
+    const dRaw=C(r[M.date]), nRaw=C(r[M.name]);
+    if(!dRaw){if(isNameLike(nRaw))curName=nRaw;continue;}
+    const d=parseDate(r[M.date]);if(!d)continue;
+    const name=isNameLike(nRaw)?nRaw:curName;
+    if(!name)continue;
+    const tin=parseTime(r[M.in]), tout=M.out>=0?parseTime(r[M.out]):null;
+    if(tin==null&&tout==null)continue;
+    out.push({d,n:name,i:tin,o:tout,ot:M.ot>=0?C(r[M.ot]):''});
+  }
+  return{rows:out};
+}
+
+/* ============ UPLOAD + DATA HANDLING ============ */
+const dropEl=document.getElementById('drop'),fileIn=document.getElementById('fileIn');
+dropEl.onclick=()=>fileIn.click();
+dropEl.ondragover=e=>{e.preventDefault();dropEl.classList.add('over')};
+dropEl.ondragleave=()=>dropEl.classList.remove('over');
+dropEl.ondrop=e=>{e.preventDefault();dropEl.classList.remove('over');handleFiles(e.dataTransfer.files)};
+fileIn.onchange=e=>{handleFiles(e.target.files);e.target.value=''};
+
+async function handleFiles(list){for(const f of list)await handleOne(f)}
+async function handleOne(file){
+  const buf=await file.arrayBuffer(), hash=await sha256(buf);
+  let wb;try{wb=XLSX.read(buf,{cellDates:true})}catch(e){return toast('❌ อ่านไฟล์ไม่ได้: '+file.name,'err')}
+  let parsed=[],err='';
+  wb.SheetNames.forEach(sn=>{
+    const res=parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''}));
+    if(res.err)err=res.err;else parsed=parsed.concat(res.rows);
+  });
+  if(!parsed.length){modal('❌ นำเข้าไม่สำเร็จ',`ไม่พบข้อมูลที่อ่านได้ในไฟล์ <b>${file.name}</b>`);return;}
+  
+  const map=new Map();
+  parsed.forEach(r=>{
+    const k=r.n+'|'+r.d,e=map.get(k);
+    if(e){if(r.i!=null)e.i=e.i==null?r.i:Math.min(e.i,r.i);if(r.o!=null)e.o=e.o==null?r.o:Math.max(e.o,r.o)}
+    else map.set(k,{...r});
+  });
+  const clean=[...map.values()];
+  await commit(file,hash,clean);
+}
+
+async function commit(file,hash,clean){
+  const stat={};
+  clean.forEach(r=>{const s=stat[r.n]=stat[r.n]||{name:r.n,found:0};s.found++;});
+  const emps=Object.values(stat).sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  const ds=clean.map(r=>r.d).sort();
+  const period=ds.length?`${ds[0]} → ${ds[ds.length-1]}`:'-';
+
+  const {data:fileRow,error:fileErr}=await sb.from('uploaded_files').insert({
+    room_id:ROOM_ID,file_name:file.name,file_hash:hash,
+    period_label:period,rows_count:clean.length,imported_count:clean.length,employees:emps
+  }).select().single();
+  if(fileErr){toast('❌ บันทึกไฟล์ลง Supabase ไม่สำเร็จ: '+fileErr.message,'err',5000);return;}
+
+  const fid=fileRow.id;
+  const rowsToUpsert=clean.map(r=>({
+    room_id:ROOM_ID,employee_name:r.n,work_date:r.d,
+    time_in_min:r.i,time_out_min:r.o,ot_note:r.ot||'',file_id:fid
+  }));
+  const {error:recErr}=await sb.from('attendance_records')
+    .upsert(rowsToUpsert,{onConflict:'room_id,employee_name,work_date'});
+  if(recErr){toast('❌ บันทึกข้อมูลสแกนไม่สำเร็จ: '+recErr.message,'err',5000);return;}
+
+  await fetchAllData();
+  if(ds.length){const[y,m]=ds[0].split('-');document.getElementById('fYear').value=y;document.getElementById('fMonth').value=+m;}
+  renderAll();
+  toast(`✅ นำเข้าข้อมูลสำเร็จ: ${clean.length} รายการ (บันทึกลง Supabase แล้ว)`,'ok',4000);
+}
+
+function fileDetail(id){
+  const f=ST.files.find(x=>x.id===id);if(!f)return;
+  const rowsHtml=(f.emps||[]).map(e=>`<tr><td>${e.name}</td><td>${e.found}</td></tr>`).join('');
+  modal(`📄 รายละเอียดไฟล์ — ${f.name}`,`<div class="tw"><table><thead><tr><th>ชื่อพนักงาน</th><th>จำนวนวัน</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`);
+}
+async function delFile(id){
+  const {error:e1}=await sb.from('attendance_records').delete().eq('room_id',ROOM_ID).eq('file_id',id);
+  const {error:e2}=await sb.from('uploaded_files').delete().eq('room_id',ROOM_ID).eq('id',id);
+  if(e1||e2){toast('❌ ลบไฟล์ไม่สำเร็จ','err');return;}
+  await fetchAllData();renderAll();
+  toast('ลบไฟล์เรียบร้อย','ok');
+}
+
+/* ================= RENDER UI ================= */
+function fillFilters(){
+  const fm=document.getElementById('fMonth'),fy=document.getElementById('fYear');
+  if(!fm.options.length){
+    MONTHS.forEach((m,i)=>fm.add(new Option(m,i+1)));
+    const now=new Date();for(let y=now.getFullYear()-5;y<=now.getFullYear()+2;y++)fy.add(new Option(y,y));
+    fm.value=now.getMonth()+1;fy.value=now.getFullYear();
+  }
+  const fp=document.getElementById('fPerson'),cur=fp.value;
+  fp.innerHTML='<option value="ALL">ทั้งหมด (All)</option>';
+  allNames().forEach(n=>fp.add(new Option(n,n)));
+  fp.value=[...fp.options].some(o=>o.value===cur)?cur:'ALL';
+  const dn=document.getElementById('dName'),c2=dn.value;
+  dn.innerHTML='';allNames().forEach(n=>dn.add(new Option(n,n)));if(c2)dn.value=c2;
+  const dt=document.getElementById('dType'),c3=dt.value;
+  dt.innerHTML='';ST.settings.types.forEach(t=>dt.add(new Option(t,t)));
+  if(c3&&ST.settings.types.includes(c3))dt.value=c3;
+  document.getElementById('dbBadge').textContent=`DB: ${ST.records.length} แถว / ${ST.files.length} ไฟล์`;
+}
+
+function renderFiles(){
+  const tb=document.querySelector('#tFiles tbody');tb.innerHTML='';
+  ST.files.slice().reverse().forEach(f=>{
+    tb.insertAdjacentHTML('beforeend',`<tr>
+      <td>📄 <b>${f.name}</b></td><td>${f.period}</td>
+      <td>รวม ${(f.emps||[]).length} คน</td>
+      <td>${f.rows}</td><td>${f.count}</td>
+      <td style="font-size:12px">${f.at}</td>
+      <td><button class="btn s sm" onclick="fileDetail('${f.id}')">ดู</button>
+          <button class="btn r sm" onclick="delFile('${f.id}')">ลบ</button></td></tr>`);
+  });
+  if(!ST.files.length)tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:22px">ยังไม่มีไฟล์ที่อัปโหลด</td></tr>';
+}
+
+function renderP1(){
+  const k=ym(),S=ST.settings,wd=workdaysOf(k),pf=personF();
+  document.getElementById('c-workdays').textContent=wd.length;
+  document.getElementById('c-workdays-sub').textContent=MONTHS[+k.split('-')[1]-1]+' '+k.split('-')[0];
+  const inMonth=[...new Set(ST.records.filter(r=>r.d.startsWith(k)).map(r=>r.n))].sort((a,b)=>a.localeCompare(b,'th'));
+  const names=(pf==='ALL'?inMonth:[pf]).filter(Boolean);
+  const tb=document.querySelector('#tSummary tbody');tb.innerHTML='';
+  let tLate=0,tFine=0,tWfh=0,incompleteCount=0;
+
+  names.forEach(n=>{
+    const recs=ST.records.filter(r=>r.d.startsWith(k)&&r.n===n);
+    const defs=ST.defends.filter(d=>d.name===n&&d.date.startsWith(k));
+    
+    let lateCount=0;
+    let sumHag1_Late=0, sumHag2=0, sumHag1_Early=0;
+    const worked=new Set();
+    let wfhOk=true;
+
+    wd.forEach(day=>{
+      const r=recs.find(x=>x.d===day);
+      const res = evaluateAttendance(n, day, r);
+      
+      if(r || defendOf(n, day)) worked.add(day);
+
+      if(res.isLateForFine){
+        lateCount++;
+      }
+
+      sumHag1_Late += res.kpiHag1_Late;
+      sumHag2 += res.kpiHag2;
+      sumHag1_Early += res.kpiHag1_Early;
+
+      if(!r || r.i == null || r.i > toMin(S.wfh) || res.h < S.hours){
+        if(!defendOf(n, day)) wfhOk=false;
+      }
+    });
+
+    const fine = lateCount * S.fine;
+    tLate += lateCount;
+    tFine += fine;
+
+    const totalKpi = sumHag1_Late + (sumHag2 * 2) + sumHag1_Early;
+    const kpiCut = Math.max(0, totalKpi - S.kth);
+    const realWork = worked.size;
+    const wfh = (realWork >= wd.length && wd.length > 0 && wfhOk);
+    if(wfh) tWfh++;
+    if(realWork < wd.length) incompleteCount++;
+
+    tb.insertAdjacentHTML('beforeend',`<tr>
+      <td><b>${n}</b></td>
+      <td>${realWork} / ${wd.length}</td>
+      <td>${defs.length?`<span class="pill p-blue">${defs.length}</span>`:'-'}</td>
+      <td>${lateCount?`<span class="pill p-yellow">${lateCount}</span>`:'0'}</td>
+      <td>${fine?`<b style="color:#dc2626">${fine.toLocaleString()}</b>`:'0'}</td>
+      <td>${sumHag1_Late}</td>
+      <td>${sumHag2}</td>
+      <td>${sumHag1_Early}</td>
+      <td><b>${totalKpi}</b></td>
+      <td>${kpiCut>0?`<span class="pill p-red">ตัด ${kpiCut} แต้ม</span>`:'0'}</td>
+      <td>${wfh?'<span class="pill p-green">ได้สิทธิ์</span>':'<span class="pill p-gray">ไม่ได้สิทธิ์</span>'}</td>
+    </tr>`);
+  });
+
+  if(!names.length)tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:30px">ไม่มีข้อมูลในเดือนที่เลือก</td></tr>';
+  document.getElementById('c-emp').textContent=names.length;
+  document.getElementById('c-late').textContent=tLate;
+  document.getElementById('c-fine').textContent=tFine.toLocaleString();
+  document.getElementById('c-wfh').textContent=tWfh;
+  document.getElementById('c-incomplete').textContent=incompleteCount;
+}
+
+function renderP2(){
+  const tb=document.querySelector('#tScan tbody');tb.innerHTML='';
+  const rows=dayRecs(ym(),personF());
+  rows.forEach(r=>{
+    const dt=new Date(r.d+'T00:00:00');
+    const res = evaluateAttendance(r.n, r.d, r);
+    const df = defendOf(r.n, r.d);
+
+    let displayStatus = `<span class="pill ${res.statusClass}">${res.statusLabel}</span>`;
+    if(df){
+      displayStatus += ` <span class="pill p-blue" style="font-size:10px;margin-left:4px;">Defend: ${df.type}</span>`;
+    }
+
+    tb.insertAdjacentHTML('beforeend',`<tr>
+      <td>${r.d} <span style="color:#94a3b8">(${DNAMES[dt.getDay()]})</span></td>
+      <td><b>${r.n}</b></td><td>${mmToHHMM(r.i)}</td><td>${mmToHHMM(r.o)}</td>
+      <td>${res.h?res.h.toFixed(2)+' ชม.':'-'}</td>
+      <td>${displayStatus}</td>
+      <td style="color:#94a3b8;font-size:11px">Excel File</td></tr>`);
+  });
+  if(!rows.length)tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:30px">ไม่มีข้อมูลสแกน</td></tr>';
+}
+
+function renderP3(){
+  const tb=document.querySelector('#tDefend tbody');tb.innerHTML='';
+  [...ST.defends].sort((a,b)=>b.date.localeCompare(a.date)).forEach(d=>tb.insertAdjacentHTML('beforeend',`<tr>
+    <td>${d.date}</td><td><b>${d.name}</b></td><td><span class="pill p-blue">${d.type}</span></td>
+    <td style="white-space:normal;max-width:340px">${d.reason||'-'}</td>
+    <td><button class="btn r sm" onclick="delDefend('${d.id}')">ลบ</button></td></tr>`));
+  if(!ST.defends.length)tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px">ยังไม่มีคำร้อง Defend</td></tr>';
+}
+async function delDefend(id){
+  const {error}=await sb.from('defends').delete().eq('room_id',ROOM_ID).eq('id',id);
+  if(error){toast('❌ ลบไม่สำเร็จ','err');return;}
+  await fetchAllData();renderAll();
+}
+
+function renderP4(){
+  const tb=document.querySelector('#tExport tbody');tb.innerHTML='';
+  const rows=dayRecs(ym(),personF()).map(r=>{
+    const df=defendOf(r.n,r.d);
+    const h=workHours(r.i,r.o);
+    return [r.d, r.n, mmToHHMM(r.i), mmToHHMM(r.o), h?h.toFixed(2):'-', df?df.type:'-', '0'];
+  });
+  rows.forEach(r=>tb.insertAdjacentHTML('beforeend',`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`));
+}
+
+function renderP5(){
+  const S=ST.settings;
+  sLate.value=S.late;sWfh.value=S.wfh;sHours.value=S.hours;sFine.value=S.fine;sKth.value=S.kth;
+  sHoliday.value=(S.holidays||[]).join('\n');sTypes.value=S.types.join('\n');
+  const box=document.getElementById('sDays');box.innerHTML='';
+  ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].forEach((d,i)=>
+    box.insertAdjacentHTML('beforeend',`<label style="font-weight:400"><input type="checkbox" class="wd" value="${i}" ${S.days.includes(i)?'checked':''}> ${d}</label>`));
+}
+
+function renderAll(){fillFilters();renderFiles();renderP1();renderP2();renderP3();renderP4();renderP5()}
+
+/* ================= EVENTS ================= */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  for(let i=1;i<=5;i++)document.getElementById('page'+i).style.display=(b.dataset.p==i?'':'none');
+  const s5=b.dataset.p=='5';
+  document.getElementById('globalBar').style.display=s5?'none':'';
+  document.getElementById('upPanel').style.display=(s5||b.dataset.p=='3')?'none':'';
+});
+['fMonth','fYear','fPerson'].forEach(id=>document.getElementById(id).onchange=renderAll);
+document.getElementById('btnJumpData').onclick=()=>{
+  if(!ST.records.length)return toast('ยังไม่มีข้อมูล','warn');
+  const d=ST.records.map(r=>r.d).sort().pop().split('-');
+  document.getElementById('fYear').value=d[0];document.getElementById('fMonth').value=+d[1];renderAll();
+};
+document.getElementById('btnDefend').onclick=async()=>{
+  const n=dName.value,d=dDate.value,t=dType.value;
+  if(!n||!d||!t)return toast('กรุณากรอกข้อมูลให้ครบ','err');
+  const {error}=await sb.from('defends').insert({
+    room_id:ROOM_ID,employee_name:n,defend_date:d,defend_type:t,
+    reason:dReason.value.trim(),status:'Approved'
+  });
+  if(error){toast('❌ บันทึก Defend ไม่สำเร็จ: '+error.message,'err',5000);return;}
+  dReason.value='';
+  await fetchAllData();renderAll();
+  toast('✅ บันทึกและอนุมัติ Defend แล้ว (ยกเว้นค่าปรับและ KPI เรียบร้อย)','ok');
+};
+document.getElementById('btnSaveSet').onclick=async()=>{
+  const s={...ST.settings,late:sLate.value,wfh:sWfh.value,hours:+sHours.value,fine:+sFine.value,
+    kth:+sKth.value,
+    days:[...document.querySelectorAll('.wd:checked')].map(x=>+x.value),
+    holidays:sHoliday.value.split('\n').map(x=>x.trim()).filter(Boolean),
+    types:sTypes.value.split('\n').map(x=>x.trim()).filter(Boolean)};
+  const {error}=await sb.from('app_settings').upsert({
+    room_id:ROOM_ID,late_time:s.late,wfh_time:s.wfh,min_hours:s.hours,fine_amount:s.fine,
+    kpi_threshold:s.kth,work_days:s.days,holidays:s.holidays,defend_types:s.types
+  });
+  if(error){toast('❌ บันทึกการตั้งค่าไม่สำเร็จ: '+error.message,'err',5000);return;}
+  ST.settings=s;renderAll();
+  toast('✅ บันทึกการตั้งค่าเรียบร้อย','ok');
+};
+document.getElementById('btnResetSet').onclick=()=>modal('↺ คืนค่าเริ่มต้น','ต้องการคืนค่าการตั้งค่าทั้งหมด?',
+  [{text:'ยกเลิก',cls:'s'},{text:'คืนค่า',cls:'r',fn:async()=>{
+    const {error}=await sb.from('app_settings').upsert({
+      room_id:ROOM_ID,late_time:DEF_SET.late,wfh_time:DEF_SET.wfh,min_hours:DEF_SET.hours,
+      fine_amount:DEF_SET.fine,kpi_threshold:DEF_SET.kth,work_days:DEF_SET.days,
+      holidays:DEF_SET.holidays,defend_types:DEF_SET.types
+    });
+    if(error){toast('❌ คืนค่าไม่สำเร็จ','err');return;}
+    ST.settings={...DEF_SET};renderAll();toast('คืนค่าเริ่มต้นแล้ว','ok');
+  }}]);
+document.getElementById('btnClear').onclick=()=>modal('⚠️ ล้างข้อมูลทั้งหมด',
+  'ลบข้อมูลสแกนและไฟล์ที่อัปโหลดทั้งหมดออกจาก Supabase ถาวร (ย้อนกลับไม่ได้) ต้องการดำเนินการต่อหรือไม่?',
+  [{text:'ยกเลิก',cls:'s'},{text:'ล้างเลย',cls:'r',fn:async()=>{
+    const {error:e1}=await sb.from('attendance_records').delete().eq('room_id',ROOM_ID);
+    const {error:e2}=await sb.from('uploaded_files').delete().eq('room_id',ROOM_ID);
+    if(e1||e2){toast('❌ ล้างข้อมูลไม่สำเร็จ','err');return;}
+    ST.records=[];ST.files=[];renderAll();toast('ล้างข้อมูลแล้ว','ok');
+  }}]);
+
+/* Export */
+document.getElementById('btnXls').onclick=()=>{
+  const head=['วันที่','ชื่อ - นามสกุล','สแกนเข้า','สแกนออก','ชั่วโมงรวม','Defend','KPI'];
+  const ws=XLSX.utils.aoa_to_sheet([head,...dayRecs(ym(),personF()).map(r=>[r.d,r.n,mmToHHMM(r.i),mmToHHMM(r.o),workHours(r.i,r.o),'-','0'])]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Attendance');
+  XLSX.writeFile(wb,`Attendance_${ym()}.xlsx`);
+};
+document.getElementById('btnPdf').onclick=()=>window.print();
+document.getElementById('btnJson').onclick=()=>{
+  const b=new Blob([JSON.stringify(ST,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`backup_attendance.json`;a.click();
+};
+document.getElementById('btnRestore').onclick=()=>document.getElementById('restoreIn').click();
+document.getElementById('restoreIn').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    const recs=(d.records||[]).map(r=>({room_id:ROOM_ID,employee_name:r.n,work_date:r.d,time_in_min:r.i,time_out_min:r.o,ot_note:r.ot||'',file_id:null}));
+    if(recs.length)await sb.from('attendance_records').upsert(recs,{onConflict:'room_id,employee_name,work_date'});
+    const defs=(d.defends||[]).map(x=>({room_id:ROOM_ID,employee_name:x.name,defend_date:x.date,defend_type:x.type,reason:x.reason||'',status:x.status||'Approved'}));
+    if(defs.length)await sb.from('defends').insert(defs);
+    if(d.settings){
+      const s={...DEF_SET,...d.settings};
+      await sb.from('app_settings').upsert({room_id:ROOM_ID,late_time:s.late,wfh_time:s.wfh,min_hours:s.hours,fine_amount:s.fine,kpi_threshold:s.kth,work_days:s.days,holidays:s.holidays,defend_types:s.types});
+    }
+    await fetchAllData();renderAll();
+    toast('✅ กู้คืนข้อมูลเข้า Supabase สำเร็จ (หมายเหตุ: ไม่รวมประวัติไฟล์อัปโหลดเดิม)','ok',5000);
+  }catch(err){toast('❌ ไฟล์ไม่ถูกต้อง: '+err.message,'err')}
+  e.target.value='';
+};
+
+/* INIT */
+fillFilters();
+renderAll();
+initAuth();
+</script>
+</body>
+</html>
